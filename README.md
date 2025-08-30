@@ -47,12 +47,9 @@ The analysis is supplemented with **Negative Binomial regression** for count dat
 
 ---
 ## 💾 Data Sources
-This project uses real-time administrative data obtained directly from the USPTO's **Open Data Portal (ODP)** via their public APIs. This approach is necessary because pre-compiled datasets like PatEx have not been updated to cover the 2024-2025 period of interest.
+This project uses administrative data obtained from the USPTO's Bulk Data Storage System (BDSS). Specifically, we use the "Patent Grant Full Text Data/XML" files, which contain detailed information for each granted patent.
 
-The primary APIs used are:
-1.  **Patent Application Data API:** To retrieve application metadata, including `filingDate`, `cpcClassifications`, `inventionTitle`, and `abstractText`.
-2.  **Patent Office Action API:** To retrieve office action documents for each application. The text of these documents is programmatically parsed to engineer the `sec101_rejection` outcome variable.
-3.  **Patent Assignment API:** To retrieve assignee (firm) data for each application, which is used to construct the `firm_id`.
+While the original goal was to automate data collection via the USPTO's Open Data Portal (ODP) APIs, the current workflow relies on manually downloading the weekly XML files from the BDSS. Future work may revisit API-based collection to further automate and scale the data pipeline.rm_id`.
 
 ---
 ## 📂 Repository Structure
@@ -69,15 +66,11 @@ The primary APIs used are:
 │   └── tables/             # Regression output tables
 │
 ├── src/
-│   ├── 01_fetch_applications.py    # Script to query and download application data
-│   ├── 02_classify_apps.py         # Script to classify apps into treatment/control groups
-│   ├── 03_get_office_actions.py    # Script to download and parse office actions
-│   ├── 04_get_assignees.py         # Script to enrich data with assignee names
-│   ├── 05_build_panel.py           # Script to assemble the final firm-quarter panel
-│   ├── 06_run_analysis.py          # Script to run all econometric models
-│   └── 07_generate_visuals.py      # Script to create figures for the paper
+│   ├── 01_parse_xml_data.py        # Script to parse XML files and classify patents
+│   ├── 02_get_office_actions.py    # (Future) Script to download and parse office actions
+│   ├── 03_build_panel.py           # (Future) Script to assemble the final firm-quarter panel
+│   └── 04_run_analysis.py          # (Future) Script to run all econometric models
 │
-├── .env.example            # Example environment file for API key
 ├── .gitignore              # Git ignore file
 ├── README.md               # This documentation file
 └── requirements.txt        # Python package dependencies
@@ -87,49 +80,37 @@ The primary APIs used are:
 ## ⚙️ System Requirements and Installation
 
 1.  **Python:** This project requires Python 3.9 or higher.
-2.  **USPTO API Key:** You must obtain a free API key from the [USPTO Developer Hub](https://developer.uspto.gov/).
+2.  USPTO Data: Manually download the "Patent Grant Full Text Data/XML" files from the [USPTO BDSS](https://bulkdata.uspto.gov/). Place the .xml files in the root directory.
 3.  **Dependencies:** Clone the repository and install the required Python packages.
     ```bash
     git clone [https://github.com/](https://github.com/)[YourUsername]/alice-in-wonderland-ai-guidance.git
     cd alice-in-wonderland-ai-guidance
     pip install -r requirements.txt
     ```
-4.  **Environment Variables:** Create a `.env` file in the root directory by copying the `.env.example` file. Add your USPTO API key to this file.
-    ```
-    # .env file
-    USPTO_API_KEY="Your-API-Key-Here"
-    ```
-    The Python scripts will use the `python-dotenv` package to load this key securely.
-
 ---
 ## 🚀 Execution Workflow
 The analysis is performed by running the Python scripts in the `/src` directory in numerical order. Each script is designed to be run from the root directory of the project.
 
-1.  **Fetch Application Data:**
+1.  **Parse XML Data and Classify Patents:**
+Place your downloaded USPTO .xml file (e.g., ipg240102.xml) in the project's root directory. Then, run the parsing script:
+python src/01_parse_xml_data.py
+This script performs the critical first step: it reads a raw USPTO XML file, extracts key metadata for each patent (application number, assignee, filing date, etc.), and applies a sophisticated ruleset to classify each patent into the 'AI' (treatment) or 'Control' group. The clean, classified data is saved to data/raw/.
     `python src/01_fetch_applications.py`
     *This script queries the USPTO API for all applications filed within the specified date range and saves the raw data to `data/raw/`.*
 
-2.  **Classify Applications:**
-    `python src/02_classify_apps.py`
-    *This script reads the raw application data and applies the hybrid CPC/keyword classifier, adding a `treatment_group` column.*
-
-3.  **Get and Parse Office Actions:**
+2.  **Get and Parse Office Actions:**
     `python src/03_get_office_actions.py`
     *This is a computationally intensive step. The script iterates through each application, downloads the first office action text, and parses it to determine if a §101 rejection was made.*
 
-4.  **Get Assignee Data:**
-    `python src/04_get_assignees.py`
-    *This script enriches the dataset by querying the Assignment API for the assignee name for each application.*
-
-5.  **Build the Final Panel:**
+3.  **Build the Final Panel:**
     `python src/05_build_panel.py`
     *This script merges all intermediate datasets and aggregates the data to the firm-quarter level, saving the final analytical panel to `data/processed/`.*
 
-6.  **Run Econometric Analysis:**
+4.  **Run Econometric Analysis:**
     `python src/06_run_analysis.py`
     *This script loads the final panel dataset and runs the DiD, Negative Binomial, and Quantile regression models. Results are saved to `results/tables/`.*
 
-7.  **Generate Visualizations:**
+5.  **Generate Visualizations:**
     `python src/07_generate_visuals.py`
     *This script generates all figures for the paper, including the critical event study plot for the parallel trends assumption, and saves them to `results/figures/`.*
 
