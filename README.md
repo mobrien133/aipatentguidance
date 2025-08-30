@@ -56,22 +56,33 @@ The primary APIs used are:
 
 ---
 ## 📂 Repository Structure
-/data/raw/
-/data/processed/
-/notebooks/exploratory_analysis.ipynb
-/results/figures/
-/results/tables/
-/src/01_fetch_applications.py
-/src/02_classify_apps.py
-/src/03_get_office_actions.py
-/src/04_get_assignees.py
-/src/05_build_panel.py
-/src/06_run_analysis.py
-/src/07_generate_visuals.py
-/.env.example
-/.gitignore
-/README.md
-/requirements.txt
+```
+├── data/
+│   ├── raw/                # Raw data downloaded from USPTO APIs
+│   └── processed/          # Cleaned and processed panel dataset
+│
+├── notebooks/
+│   └── exploratory_analysis.ipynb  # Jupyter notebook for EDA and assumption checks
+│
+├── results/
+│   ├── figures/            # Generated plots (e.g., event study plot)
+│   └── tables/             # Regression output tables
+│
+├── src/
+│   ├── 01_fetch_applications.py    # Script to query and download application data
+│   ├── 02_classify_apps.py         # Script to classify apps into treatment/control groups
+│   ├── 03_get_office_actions.py    # Script to download and parse office actions
+│   ├── 04_get_assignees.py         # Script to enrich data with assignee names
+│   ├── 05_build_panel.py           # Script to assemble the final firm-quarter panel
+│   ├── 06_run_analysis.py          # Script to run all econometric models
+│   └── 07_generate_visuals.py      # Script to create figures for the paper
+│
+├── .env.example            # Example environment file for API key
+├── .gitignore              # Git ignore file
+├── README.md               # This documentation file
+└── requirements.txt        # Python package dependencies
+```
+
 ---
 ## ⚙️ System Requirements and Installation
 
