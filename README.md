@@ -47,10 +47,30 @@ The analysis is supplemented with **Negative Binomial regression** for count dat
 
 ---
 ## 💾 Data Sources
-This project uses administrative data obtained from the USPTO's Bulk Data Storage System (BDSS). Specifically, we use the "Patent Grant Full Text Data/XML" files, which contain detailed information for each granted patent.
+## Methodology Update: Google BigQuery
 
-While the original goal was to automate data collection via the USPTO's Open Data Portal (ODP) APIs, the current workflow relies on manually downloading the weekly XML files from the BDSS. Future work may revisit API-based collection to further automate and scale the data pipeline.rm_id`.
+The data extraction process has been migrated from an API-based approach to a more robust and efficient SQL-based approach using Google Cloud's BigQuery public patent datasets. This method allows for direct access to comprehensive, structured data from the USPTO.
 
+This project now uses a two-query approach to extract the necessary panel data for the analysis. The SQL scripts are located in the `/src` directory.
+
+### SQL Scripts
+
+1.  **`src/query_prosecution_outcomes.sql`**
+    * **Purpose:** This script generates the primary dataset for analyzing patent prosecution outcomes, specifically focusing on subject matter eligibility rejections under 35 U.S.C. §101 (Hypothesis 1).
+    * **Output:** A patent-level dataset containing publication and filing dates, assignee information, and boolean flags for `has_101_rejection`, `is_ai_patent`, and `is_control_software`.
+
+2.  **`src/query_filing_strategy_proxy.sql`**
+    * **Purpose:** This script generates a proxy dataset for analyzing firm-level patenting strategy (Hypothesis 3).
+    * **Output:** A firm-quarter panel dataset with counts of published applications, which serves as a proxy for overall filing activity.
+
+### How to Run
+
+Both queries are designed to be run in the Google BigQuery UI with the **Processing location** set to the default **`US`** multi-region.
+
+### Limitations
+
+* **Filing Count Proxy:** The filing strategy query uses published applications as a proxy for all applications filed. This is a limitation because it excludes applications that were filed but never published.
+* **Examiner Variance (Hypothesis 2):** The hypothesis regarding examination uncertainty could not be tested with this data pull. The necessary `examiner_id` was not available in a curated dataset alongside the clean `rejection_101` flag required for the analysis.
 ---
 ## 📂 Repository Structure
 ```
@@ -66,10 +86,10 @@ While the original goal was to automate data collection via the USPTO's Open Dat
 │   └── tables/             # Regression output tables
 │
 ├── src/
-│   ├── 01_parse_xml_data.py        # Script to parse XML files and classify patents
-│   ├── 02_get_office_actions.py    # (Future) Script to download and parse office actions
-│   ├── 03_build_panel.py           # (Future) Script to assemble the final firm-quarter panel
-│   └── 04_run_analysis.py          # (Future) Script to run all econometric models
+│   ├── 01_parse_xml_data.py                    # Script to parse XML files and classify patents
+│   ├── 02_query_prosecution_outcomes.sql       # This file contains the final, working query for the main analysis on rejection rates.
+│   ├── 03_query_filing_strategy_proxy.sql      # This file contains the second query, which creates the panel data for your filing strategy analysis.
+│   └── 04_run_analysis.py                      # (Future) Script to run all econometric models
 │
 ├── .gitignore              # Git ignore file
 ├── README.md               # This documentation file
