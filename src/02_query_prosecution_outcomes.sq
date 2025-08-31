@@ -1,0 +1,59 @@
+-- Filename: query_prosecution_outcomes.sql
+-- Purpose: Extracts patent prosecution outcome data to test Hypothesis 1 (Rejection Rates).
+-- This query produces a patent-level dataset with flags for §101 rejections,
+-- AI patents, and non-AI software control patents.
+-- BigQuery Location: Run in the default 'US' multi-region.
+
+WITH apps_with_101 AS (
+  -- This CTE finds applications with a §101 rejection in their first office action.
+  SELECT
+    app_id
+  FROM (
+    SELECT
+      app_id,
+      rejection_101,
+      ROW_NUMBER() OVER(PARTITION BY app_id ORDER BY mail_dt ASC) as rn
+    FROM
+      `patents-public-data.uspto_oce_office_actions.office_actions`
+  )
+  WHERE
+    rn = 1 AND (LOWER(CAST(rejection_101 AS STRING)) = 'true' OR CAST(rejection_101 AS STRING) = '1')
+),
+categorized_patents AS (
+  SELECT
+    pub.publication_number AS us_grant_pub,
+    pub.publication_date AS grant_pub_date,
+    pub.filing_date,
+    (SELECT t.text FROM UNNEST(pub.title_localized) AS t WHERE t.language = 'en') AS title,
+    (SELECT STRING_AGG(ah.name, '; ') FROM UNNEST(pub.assignee_harmonized) ah) AS assignees,
+    (a.app_id IS NOT NULL) AS has_101_rejection,
+    (ai.predict50_any_ai = 1) AS is_ai_patent,
+    EXISTS (
+      SELECT 1 FROM UNNEST(pub.cpc) c
+      WHERE
+        STARTS_WITH(c.code, 'G06F9') OR STARTS_WITH(c.code, 'G06F11') OR
+        STARTS_WITH(c.code, 'G06F12') OR STARTS_WITH(c.code, 'G06F15') OR
+        STARTS_WITH(c.code, 'G06F16') OR STARTS_WITH(c.code, 'G06F17') OR
+        STARTS_WITH(c.code, 'G06F19') OR STARTS_WITH(c.code, 'G06F21') OR
+        STARTS_WITH(c.code, 'G06Q10') OR STARTS_WITH(c.code, 'G06Q20') OR
+        STARTS_WITH(c.code, 'G06Q30') OR STARTS_WITH(c.code, 'G06Q40') OR
+        STARTS_WITH(c.code, 'G06Q50') OR STARTS_WITH(c.code, 'H04L9') OR
+        STARTS_WITH(c.code, 'H04L12') OR STARTS_WITH(c.code, 'H04L29') OR
+        STARTS_WITH(c.code, 'H04N21') OR STARTS_WITH(c.code, 'H04W4') OR
+        STARTS_WITH(c.code, 'G06F7') OR STARTS_WITH(c.code, 'H04L63') OR
+        STARTS_WITH(c.code, 'H04L67') OR STARTS_WITH(c.code, 'G06F38')
+    ) AS is_control_software
+  FROM
+    `bigquery-public-data.patents.publications` AS pub
+  LEFT JOIN
+    apps_with_101 a ON REGEXP_REPLACE(pub.application_number_formatted, r'[^0-9]', '') = REGEXP_REPLACE(CAST(a.app_id AS STRING), r'[^0-9]', '')
+  LEFT JOIN
+    `patents-public-data.uspto_oce_ai.landscape` ai ON REGEXP_REPLACE(pub.application_number_formatted, r'[^0-9]', '') = ai.doc_id
+  WHERE
+    pub.country_code = 'US' AND pub.filing_date BETWEEN 20220101 AND 20251231
+    AND REGEXP_CONTAINS(pub.publication_number, r'US-\d+-(B|B1|B2)')
+)
+SELECT *
+FROM categorized_patents
+WHERE is_ai_patent IS TRUE OR is_control_software IS TRUE
+ORDER BY grant_pub_date DESC;
